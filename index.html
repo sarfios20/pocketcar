@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PocketCar · a top-down maneuvering model</title>
+<style>
+  :root {
+    --bg: #202428;
+    --panel: rgba(22, 25, 28, 0.88);
+    --line: rgba(230, 225, 211, 0.12);
+    --chalk: #e6e1d3;
+    --dim: #9aa3ab;
+    --amber: #f2ae2e;
+    --teal: #45d6b8;
+    --coral: #ff8a5c;
+    --danger: #ff5c5c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    font-family: system-ui, sans-serif;
+    color: var(--chalk);
+  }
+  canvas { display: block; cursor: default; }
+
+  #panel {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    width: 292px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    backdrop-filter: blur(6px);
+    user-select: none;
+  }
+  #panel h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+  #panel .sub {
+    font-size: 12px;
+    color: var(--dim);
+    margin: 2px 0 12px;
+  }
+  #panel h2 {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 12px 0 6px;
+  }
+  .scenarios { display: flex; flex-wrap: wrap; gap: 6px; }
+  .scenarios button {
+    font: 12px system-ui, sans-serif;
+    color: var(--chalk);
+    background: rgba(230, 225, 211, 0.06);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 9px;
+    cursor: pointer;
+  }
+  .scenarios button:hover { background: rgba(230, 225, 211, 0.12); }
+  .scenarios button.active {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #1c1a12;
+    font-weight: 600;
+  }
+  .scenarios button:focus-visible,
+  .actions button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  #hint { font-size: 12px; line-height: 1.45; color: var(--dim); margin-top: 8px; min-height: 32px; }
+  #hint b { color: var(--chalk); font-weight: 600; }
+
+  ul.help { list-style: none; font-size: 12px; line-height: 1.5; color: var(--dim); }
+  ul.help li { padding-left: 14px; position: relative; }
+  ul.help li::before { content: "·"; position: absolute; left: 2px; color: var(--amber); }
+  kbd {
+    font: 10.5px ui-monospace, monospace;
+    background: rgba(230, 225, 211, 0.08);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0 4px;
+  }
+
+  .legend { font-size: 12px; color: var(--dim); line-height: 1.7; }
+  .legend .dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 7px; vertical-align: baseline;
+  }
+  .legend .ghostbox {
+    display: inline-block; width: 12px; height: 8px; border-radius: 2px;
+    border: 1px solid rgba(242, 174, 46, 0.55); margin-right: 5px;
+  }
+
+  .readout {
+    display: flex;
+    justify-content: space-between;
+    font: 12px ui-monospace, monospace;
+    color: var(--chalk);
+    background: rgba(230, 225, 211, 0.05);
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-top: 12px;
+  }
+  .readout .hits { color: var(--danger); }
+
+  .actions { display: flex; gap: 6px; margin-top: 10px; }
+  .actions button {
+    flex: 1;
+    font: 11px system-ui, sans-serif;
+    color: var(--dim);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 0;
+    cursor: pointer;
+  }
+  .actions button:hover { color: var(--chalk); border-color: var(--dim); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="panel">
+  <h1>PocketCar</h1>
+  <div class="sub">push the car and see where it really goes</div>
+
+  <h2>Scenarios</h2>
+  <div class="scenarios" id="scenarios"></div>
+  <div id="hint"></div>
+
+  <h2>How to use</h2>
+  <ul class="help">
+    <li>Drag the car with the mouse, like a toy (or <kbd>↑</kbd> <kbd>↓</kbd>)</li>
+    <li>Turn the wheel with the scroll wheel, <kbd>←</kbd> <kbd>→</kbd>, or by dragging it</li>
+    <li><kbd>R</kbd> reset · <kbd>C</kbd> clear tracks · <kbd>G</kbd> turning geometry</li>
+  </ul>
+
+  <h2>Tracks</h2>
+  <div class="legend">
+    <div><span class="dot" style="background:#45d6b8"></span>rear wheels (the ones that cut in)</div>
+    <div><span class="dot" style="background:#ff8a5c"></span>front wheels</div>
+    <div><span class="ghostbox"></span>body swept path</div>
+  </div>
+
+  <div class="readout">
+    <span>steering <b id="steerText">center</b></span>
+    <span class="hits">hits <b id="hitsText">0</b></span>
+  </div>
+
+  <div class="actions">
+    <button id="btnReset">Reset</button>
+    <button id="btnClear">Clear tracks</button>
+    <button id="btnGeo">Geometry</button>
+  </div>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
