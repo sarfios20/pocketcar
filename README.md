@@ -4,7 +4,7 @@ A top-down, toy-sized car model for building intuition about how a real car move
 speed: why the rear wheels cut the corner, how far the nose and tail sweep out through a
 turn, and why you parallel park in reverse.
 
-**Live demo: https://sarfios20.github.io/pocketcar/**
+**Live demo: https://davidhaggstrom.dev/pocketcar/**
 
 No dependencies: open `index.html` in a browser and go.
 
